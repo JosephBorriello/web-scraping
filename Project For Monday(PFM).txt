@@ -1,0 +1,128 @@
+/* instructions
+
+step one: open google chrome
+step two: go to https://www.donvance-ford.com/searchnew.aspx
+step three: press [ctrl-shift-j] to open the chrome dev console
+step four: clear console
+step five: copy and paste code into dev console
+step six: run
+
+additional information
+
+one: the code takes a minimum of 10 seconds to complete, this gives the scraper
+     time to rip all of the data before the .json and .csv files are downloaded
+two: the code is pre-set to calculate totalPages based on var totalNumberOfVehicles = 135
+     and var numberOfVehiclesPerPage = 10
+three: the prompts for these two variables have been commented out as the delay in time
+     caused by used input affected the output
+four: this is solved by automating the process using the data in the html however I have 
+     yet to work out a way to go about doing so */
+
+// import JQuery
+setTimeout(function()
+{
+    var jq = document.createElement('script');
+    jq.src = 'https://code.jquery.com/jquery-3.6.0.js';
+    document.getElementsByTagName('head')[0].append(jq)
+})
+
+//global variable list
+//variables
+var totalNumberOfVehicles = 135;
+var numberOfVehiclesPerPage = 10;
+var totalPages = 1;
+//arrays
+var vehicleURLList = [];
+var vehicleDataList = [];
+
+// page count calculations
+setTimeout(function()
+{
+    //totalNumberOfVehicles = parseInt(prompt("Please enter the total number of vehicles: "));
+    //numberOfVehiclesPerPage = parseInt(prompt("How many vehicles are listed on each page? "));      
+    totalPages = Math.ceil(totalNumberOfVehicles / numberOfVehiclesPerPage);
+})
+// extract url data
+setTimeout(function() 
+{
+    // loop over the range of pages
+    for (var page = 1; page <= totalPages; page++)
+    // make HTTP request to the target page URL
+    fetch('https://www.donvance-ford.com/searchnew.aspx?pt=' + page.toString())
+        // extract HTML from response object
+        .then(response => response.text())
+        // parse HTML
+        .then(content => $(content).find('.row.srpVehicle.hasVehicleInfo').each(function() 
+        {
+            // set vehicleURL to found URL data
+            var vehicleURL = 
+            {
+                'URL': $(this).find('a[class="stat-text-link"]').attr("href")
+            }
+            // append URL data to vehicleURLList
+            vehicleURLList.push(vehicleURL);
+            // make HTTP request to the URL pulled by the vehicleURL selector
+            fetch($(this).find('a[class="stat-text-link"]').attr("href"))
+            // extract HTML from response object
+            .then(response => response.text())
+            // parse HTML
+            .then(content => $(content).find('div[class="col-lg-7 col-md-8 col-sm-8 margin-top"]').each(function() 
+            {
+                // populates vehicleData with found vehicle data
+                var vehicleData = 
+                {
+                    '1: Year/Make/Model/Trim': $(this).find(".vehicleTitle.margin-vert-x.text-cta .notranslate").text().trim(),
+                    '2: VIN': $(this).find(".srpVehicleDetails.visible-xs .vinDisplay").text().trim(),
+                    '3: Stock Number': $(this).find(".srpVehicleDetails.visible-xs .stockDisplay").text().trim(),
+                    '4: Vehicle URL': JSON.stringify(vehicleURL)
+                }
+            // append URL data to vehicleURLList
+            vehicleDataList.push(vehicleData);
+            })) 
+        }))
+})
+// print
+setTimeout(function() 
+{
+    if(confirm("Click okay to download the JSON and CSV files."))
+    {
+        // create JSON download link
+        $('head').append('<a download="vehicleDataList.json"></a>');
+        // create object URL
+        $('a[download="vehicleDataList.json"]').attr('href', window.URL.createObjectURL(new Blob([JSON.stringify(vehicleDataList, null, 2)], {type: 'text'})));
+        // click JSON download link
+        $('a[download="vehicleDataList.json"]')[0].click() 
+        // create CSV output
+        csv = 'Year/Make/Model/Trim,VIN,Stock Number,Vehicle URL\n';
+        // loop through array
+        $.each(vehicleDataList, function(index) 
+        {
+            // create row string
+            var row = '';
+            // loop over object values for each vehicle
+            $.each(this, function(key, val) 
+            {
+                if (key == '1: Year/Make/Model/Trim' || key == '2: VIN' || key == '3: Stock Number' || key == '4: Vehicle URL')
+                row += '"' + val + '"' + ','
+            });
+        // slice last coma
+        row = row.slice(0, -1);
+        // append new line feed to the row
+        row += '\n';
+        // append row to csv  
+        csv += row;
+        });  
+        // create download link
+        $('head').append('<a download="vehicleDataList.csv"></a>');  
+        // create object URL
+        $('a[download="vehicleDataList.csv"]').attr('href', window.URL.createObjectURL(
+        new Blob([csv], {type: 'text/csv'})
+        ));  
+        // click download link
+        $('a[download="vehicleDataList.csv"]')[0].click()
+    }
+    else
+    {
+    console.log(vehicleDataList)
+    }
+}, 10000)
